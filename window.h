@@ -16,6 +16,9 @@ bool initGL(const char *vertexFile, const char *fragmentFile);
 /* input handler */
 void handleInput(const uint8_t *keyboard);
 
+/* update times */
+void update();
+
 /* reset mandelbrot parameters */
 void reset();
 

@@ -20,15 +20,20 @@ GLint  vertexPosAttrLoc = -1;
 GLuint VBO = 0;
 GLuint IBO = 0;
 
-GLint DEFAULT_ITERATION_LIMIT = 50;
+GLdouble DEFAULT_ITERATION_LIMIT = 50;
 GLdouble DEFAULT_CENTER[2] = { 0, 0 };
 GLdouble DEFAULT_ZOOM = 0.45;
 
-GLint iterationLimit;
+GLdouble iterationLimit;
 GLdouble center[2];
 GLdouble zoom;
 GLboolean windowCrosshair = GL_FALSE;
 
+/* current time */
+GLdouble perfTime;
+
+/* time since last frame */
+GLdouble deltaTime = 0;
 
 const char *screenShotFileBase = NULL;
 
@@ -88,6 +93,7 @@ bool initSDL(int w, int h, const char *vertexFile, const char *fragmentFile, con
 
     reset();
     screenShotFileBase = screenShotFile;
+    perfTime = (double)SDL_GetPerformanceCounter();
 
     /* success */
     return true;
@@ -199,6 +205,10 @@ bool initGL(const char *vertexFile, const char *fragmentFile)
 
 void handleInput(const uint8_t *keyboard)
 {
+    const double panSpeed = 0.5;
+    const double zoomFactor = pow(2, -1);
+    const double iterSpeed = 100.0;
+
     double turbo = 1 + 4*keyboard[SDL_SCANCODE_LSHIFT];
 
     if (keyboard[SDL_SCANCODE_LALT]) {
@@ -211,16 +221,15 @@ void handleInput(const uint8_t *keyboard)
     int up =    keyboard[SDL_SCANCODE_UP]    | keyboard[SDL_SCANCODE_W];
     int down =  keyboard[SDL_SCANCODE_DOWN]  | keyboard[SDL_SCANCODE_S];
 
-    center[1] += turbo * (up - down) * 0.1 / zoom;
-    center[0] += turbo * (right - left) * 0.1 / zoom;
+    center[1] += turbo * (up - down) * panSpeed * deltaTime / zoom;
+    center[0] += turbo * (right - left) * panSpeed * deltaTime / zoom;
 
     int zoomDirection = keyboard[SDL_SCANCODE_EQUALS] - keyboard[SDL_SCANCODE_MINUS];
 
-    zoom = fmax(0.2, zoom * pow(2, turbo * zoomDirection * 0.5));
+    zoom = fmax(0.2, zoom * pow(2, turbo * zoomDirection * zoomFactor * deltaTime));
 
-    int iterIncrease = keyboard[SDL_SCANCODE_E];
-    int iterDecrease = keyboard[SDL_SCANCODE_Q];
-    iterationLimit = (GLint)(fmax(0, fmin(1000, iterationLimit+turbo*5*(iterIncrease-iterDecrease))));
+    int iterDirection = keyboard[SDL_SCANCODE_E] - keyboard[SDL_SCANCODE_Q];
+    iterationLimit = fmax(0, fmin(1000, iterationLimit+turbo*iterSpeed*deltaTime*iterDirection));
 
     if (keyboard[SDL_SCANCODE_P]) {
         screenshot(screenShotFileBase);
@@ -229,6 +238,13 @@ void handleInput(const uint8_t *keyboard)
     if (keyboard[SDL_SCANCODE_R]) {
         reset();
     }
+}
+
+void update()
+{
+    GLdouble now = (GLdouble)SDL_GetPerformanceCounter();
+    deltaTime = (GLdouble)((now-perfTime)/ (GLdouble)SDL_GetPerformanceFrequency());
+    perfTime = now;
 }
 
 void render()
@@ -241,7 +257,7 @@ void render()
     glUniform2i(resUniform, width, height);
 
     GLint iterUniform = glGetUniformLocation(programID, "u_iterationLimit");
-    glUniform1i(iterUniform, iterationLimit);
+    glUniform1i(iterUniform, (GLint)iterationLimit);
 
     GLint centerUniform = glGetUniformLocation(programID, "u_center");
     glUniform2d(centerUniform, center[0], center[1]);
@@ -267,7 +283,7 @@ void render()
     /* update screen */
     SDL_GL_SwapWindow(window);
 
-    printf("\rCenter: (%+1.08f, %+1.08f), Zoom: %10.4f, Iterations: %5d", center[0], center[1], zoom, iterationLimit);
+    printf("\rCenter: (%+1.08f, %+1.08f), Zoom: %10.4f, Iterations: %5d", center[0], center[1], zoom, (GLint)iterationLimit);
     fflush(stdout);
 }
 

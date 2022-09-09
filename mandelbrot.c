@@ -37,15 +37,19 @@ int main(int argc, char **argv)
     while (!quit) { /* until quit */
         windowCrosshair = keyboard[SDL_SCANCODE_X];
 
+        if (keyboard[SDL_SCANCODE_ESCAPE]) {
+            quit = true;
+        }
+
         /* handle events in event queue */
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) {                   /* user request quit */
                 quit = true;
-            } else if (e.type == SDL_TEXTINPUT) {       /* handle keypress with current mouse position */
-                handleInput(keyboard);
             }
         }
+        handleInput(keyboard);
 
+        update();
         render();
     }
 

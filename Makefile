@@ -11,6 +11,7 @@ LDFLAGS=-lSDL2main -lSDL2 -lGL -lGLEW -lGLU -lm
 CFLAGS+=--std=c99
 CFLAGS+=-Wall
 CFLAGS+=-Wextra
+CFLAGS+=-Wshadow
 CFLAGS+=-pedantic-errors
 
 $(TARGET): $(SRCS)
