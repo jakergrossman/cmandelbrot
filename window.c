@@ -9,7 +9,6 @@
 
 /* the rendering window */
 SDL_Window *window = NULL;
-int width, height;
 
 /* OpenGL context */
 SDL_GLContext ctx;
@@ -24,10 +23,7 @@ GLdouble DEFAULT_ITERATION_LIMIT = 50;
 GLdouble DEFAULT_CENTER[2] = { 0, 0 };
 GLdouble DEFAULT_ZOOM = 0.45;
 
-GLdouble iterationLimit;
-GLdouble center[2];
-GLdouble zoom;
-GLboolean windowCrosshair = GL_FALSE;
+struct windowState state = { 0 };
 
 /* current time */
 GLdouble perfTime;
@@ -45,9 +41,6 @@ bool initSDL(int w, int h, const char *vertexFile, const char *fragmentFile, con
         return false;
     }
 
-    // Use OpenGL 4.0 for double support
-    /* SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3); */
-    /* SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1); */
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
     /* create window */
@@ -64,8 +57,8 @@ bool initSDL(int w, int h, const char *vertexFile, const char *fragmentFile, con
         return false;
     }
 
-    width = w;
-    height = h;
+    state.width = w;
+    state.height = h;
 
     ctx = SDL_GL_CreateContext(window);
     if (ctx == NULL) {
@@ -101,10 +94,12 @@ bool initSDL(int w, int h, const char *vertexFile, const char *fragmentFile, con
 
 void reset()
 {
-    iterationLimit = DEFAULT_ITERATION_LIMIT;
-    center[0] = DEFAULT_CENTER[0];
-    center[1] = DEFAULT_CENTER[1];
-    zoom = DEFAULT_ZOOM;
+    state.iterationLimit = DEFAULT_ITERATION_LIMIT;
+    state.center[0] = DEFAULT_CENTER[0];
+    state.center[1] = DEFAULT_CENTER[1];
+    state.zoom = DEFAULT_ZOOM;
+    state.windowCrosshair = GL_FALSE;
+    state.keyboard = SDL_GetKeyboardState(NULL);
 }
 
 bool initGL(const char *vertexFile, const char *fragmentFile)
@@ -203,8 +198,10 @@ bool initGL(const char *vertexFile, const char *fragmentFile)
     return true;
 }
 
-void handleInput(const uint8_t *keyboard)
+bool screenshotDebounce = false;
+void handleInput()
 {
+    const uint8_t * const keyboard = state.keyboard;
     const double panSpeed = 0.5;
     const double zoomFactor = pow(2, -1);
     const double iterSpeed = 100.0;
@@ -221,18 +218,23 @@ void handleInput(const uint8_t *keyboard)
     int up =    keyboard[SDL_SCANCODE_UP]    | keyboard[SDL_SCANCODE_W];
     int down =  keyboard[SDL_SCANCODE_DOWN]  | keyboard[SDL_SCANCODE_S];
 
-    center[1] += turbo * (up - down) * panSpeed * deltaTime / zoom;
-    center[0] += turbo * (right - left) * panSpeed * deltaTime / zoom;
+    state.center[1] += turbo * (up - down) * panSpeed * deltaTime / state.zoom;
+    state.center[0] += turbo * (right - left) * panSpeed * deltaTime / state.zoom;
 
     int zoomDirection = keyboard[SDL_SCANCODE_EQUALS] - keyboard[SDL_SCANCODE_MINUS];
 
-    zoom = fmax(0.2, zoom * pow(2, turbo * zoomDirection * zoomFactor * deltaTime));
+    state.zoom = fmax(0.2, state.zoom * pow(2, turbo * zoomDirection * zoomFactor * deltaTime));
 
     int iterDirection = keyboard[SDL_SCANCODE_E] - keyboard[SDL_SCANCODE_Q];
-    iterationLimit = fmax(0, fmin(1000, iterationLimit+turbo*iterSpeed*deltaTime*iterDirection));
+    state.iterationLimit = fmax(0, fmin(1000, state.iterationLimit+turbo*iterSpeed*deltaTime*iterDirection));
 
     if (keyboard[SDL_SCANCODE_P]) {
-        screenshot(screenShotFileBase);
+        if (!screenshotDebounce) {
+            screenshot(screenShotFileBase);
+            screenshotDebounce = true;
+        }
+    } else {
+        screenshotDebounce = false;
     }
 
     if (keyboard[SDL_SCANCODE_R]) {
@@ -254,19 +256,19 @@ void render()
     glUseProgram(programID);
 
     GLint resUniform = glGetUniformLocation(programID, "u_resolution");
-    glUniform2i(resUniform, width, height);
+    glUniform2i(resUniform, state.width, state.height);
 
     GLint iterUniform = glGetUniformLocation(programID, "u_iterationLimit");
-    glUniform1i(iterUniform, (GLint)iterationLimit);
+    glUniform1i(iterUniform, (GLint)state.iterationLimit);
 
     GLint centerUniform = glGetUniformLocation(programID, "u_center");
-    glUniform2d(centerUniform, center[0], center[1]);
+    glUniform2d(centerUniform, state.center[0], state.center[1]);
 
     GLint zoomUniform = glGetUniformLocation(programID, "u_zoom");
-    glUniform1d(zoomUniform, zoom);
+    glUniform1d(zoomUniform, state.zoom);
 
     GLint crossUniform = glGetUniformLocation(programID, "u_crosshair");
-    glUniform1i(crossUniform, windowCrosshair);
+    glUniform1i(crossUniform, state.windowCrosshair);
 
     glEnableVertexAttribArray(vertexPosAttrLoc);
 
@@ -283,7 +285,7 @@ void render()
     /* update screen */
     SDL_GL_SwapWindow(window);
 
-    printf("\rCenter: (%+1.08f, %+1.08f), Zoom: %10.4f, Iterations: %5d", center[0], center[1], zoom, (GLint)iterationLimit);
+    printf("\rCenter: (%+1.08f, %+1.08f), Zoom: %10.4f, Iterations: %5d", state.center[0], state.center[1], state.zoom, (GLint)state.iterationLimit);
     fflush(stdout);
 }
 
@@ -412,13 +414,13 @@ void screenshot(const char *basefile) {
 
     strncpy(filename+len+6, ".bmp", 5);
 
-    unsigned char *pixels = malloc(width * height * 4);
+    unsigned char *pixels = malloc(state.width * state.height * 4);
     if (!pixels) {
         fprintf(stderr, "Could not allocate memory: %s\n", strerror(errno));
         exit(1);
     }
 
-    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, pixels);
+    glReadPixels(0, 0, state.width, state.height, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, pixels);
 
     int flag = 1;
     uint32_t r, g, b, a; /* masks */
@@ -431,7 +433,7 @@ void screenshot(const char *basefile) {
         a = 0xFF000000;
     }
 
-    SDL_Surface *surf = SDL_CreateRGBSurfaceFrom(pixels, width, height, 8*4, width*4, r, g, b, a);
+    SDL_Surface *surf = SDL_CreateRGBSurfaceFrom(pixels, state.width, state.height, 8*4, state.width*4, r, g, b, a);
     int err = SDL_SaveBMP(surf, filename);
     if (err != 0) {
         fprintf(stderr, "Could not save '%s': %s'", filename, SDL_GetError());

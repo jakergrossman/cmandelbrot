@@ -27,10 +27,26 @@ move left/right/up/down
 
 <kbd>p</kbd> - Save screenshot of current viewable area
 
+<kbd>escape</kbd> - Quit
+
+## Command Line Arguments
+
+Pairs of key-value arguments can be passed to specify starting values.
+e.g.: `./mandelbrot width 500 height 128 screenshotname "image"`
+
+Available Options:
+
+- `width`
+- `height`
+- `centerX`
+- `centerY`
+- `zoom`
+- `screenshotname`
+
 ## Todo
 
-- [ ] Command line arguments
-    - [ ] Screen Size
-    - [ ] Screenshot Name
-    - [ ] Starting positions
-    - [ ] Save positions
+- [X] Command line arguments
+    - [X] Screen Size
+    - [X] Screenshot Name
+    - [X] Starting positions
+- [ ] Save positions

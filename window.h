@@ -3,9 +3,19 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <GL/glew.h>
 
-extern GLboolean windowCrosshair;
+struct windowState {
+    GLdouble iterationLimit;
+    GLdouble center[2];
+    GLdouble zoom;
+    GLboolean windowCrosshair;
+    int width, height;
+    const uint8_t *keyboard;
+};
+
+extern struct windowState state;
 
 /* starts up SDL, creates window, and initializes OpenGL */
 bool initSDL(int w, int h, const char *vertexFile, const char *fragmentFile, const char *screenShotFile);
@@ -14,7 +24,7 @@ bool initSDL(int w, int h, const char *vertexFile, const char *fragmentFile, con
 bool initGL(const char *vertexFile, const char *fragmentFile);
 
 /* input handler */
-void handleInput(const uint8_t *keyboard);
+void handleInput();
 
 /* update times */
 void update();

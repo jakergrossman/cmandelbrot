@@ -11,8 +11,16 @@ uniform bool u_crosshair;
 
 out vec4 color;
 
-dvec2 z = dvec2(0.0);
 float mandelbrot(in dvec2 co) {
+    // skip some computation inside first period component
+    // section: internal bound
+    // https://iquilezles.org/articles/mset1bulb/
+    double c2 = dot(co, co);
+    if (256.0 * c2 * c2 - 96.0 * c2 + 32*co.x - 3.0 < 0.0) {
+        return -1.0;
+    }
+
+    dvec2 z = dvec2(0.0);
     for (int i = 0; i < u_iterationLimit; i++) {
         z = dvec2(
                 z.x*z.x - z.y*z.y + co.x,
@@ -40,9 +48,9 @@ void main() {
 
     dvec2 clip = 2.0 * uv - 1.0;
     double aspect = double(u_resolution.x) / double(u_resolution.y);
-    clip *= dvec2(aspect, 1.0lf);
     clip /= u_zoom;
     clip += u_center;
+    clip *= dvec2(aspect, 1.0lf);
 
     float numIterations = mandelbrot(clip);
     color = step(0, numIterations) * vec4(palette(numIterations / float(u_iterationLimit), A, B, C, D), 1.0);
